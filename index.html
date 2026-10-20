@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>LP Hub TV Extra TV</title>
+<style>
+  /* Layout: only the Figma frame, centered, at most its native 1440px width.
+     Overlays are placed in the frame's own pixel coordinates, converted to % of 1440 × 5488. */
+  :root { --bg: #ffffff; --selected: #ff7900; --idle: #cccccc; }
+  body { background: var(--bg); margin: 0; }
+  .lp { position: relative; max-width: 1440px; margin: 0 auto; }
+  .lp > img { display: block; width: 100%; height: auto; }
+  .hit {
+    position: absolute; padding: 0; margin: 0; border: 0; background: none;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .hit::after {
+    content: ""; position: absolute; inset: -1px; border-radius: 7px;
+    border: 3px solid transparent; pointer-events: none;
+  }
+  .hit:focus-visible { outline: 2px solid #000; outline-offset: 3px; border-radius: 6px; }
+  .lp.bez #r24::after { border-color: var(--idle); }
+  .lp.bez #rbez::after { border-color: var(--selected); }
+  .dishes {
+    position: absolute; overflow: hidden;
+    background: url("assets/bg-oferta.png") no-repeat;
+  }
+  .dishes img { display: block; width: 100%; height: 100%; }
+  .lp:not(.bez) .dishes { display: none; }
+</style>
+</head>
+<body>
+
+<div class="lp" id="lp">
+  <img src="assets/lp.png" width="1440" height="5488" alt="Makieta landing page'a Telewizji Extra TV: baner, wybór umowy, oferta, pakiety, serwisy streamingowe, FAQ i stopka">
+  <button class="hit" id="r24" data-box="416,1512,296,52" aria-pressed="true" aria-label="24 miesiące"></button>
+  <button class="hit" id="rbez" data-box="728,1512,296,52" aria-pressed="false" aria-label="Bezterminowo"></button>
+  <div class="dishes" id="dishes" data-box="104,1580,1232,420" aria-hidden="true">
+    <img src="assets/dish-bezterminowo.png" width="1232" height="420" alt="Oferta bezterminowa: Start TV, 47 kanałów, oraz Extra TV">
+  </div>
+</div>
+
+<script>
+  const W = 1440, H = 5488;
+  const pct = (v, of) => (v / of * 100) + "%";
+  document.querySelectorAll("[data-box]").forEach(el => {
+    const [x, y, w, h] = el.dataset.box.split(",").map(Number);
+    Object.assign(el.style, { left: pct(x, W), top: pct(y, H), width: pct(w, W), height: pct(h, H) });
+  });
+
+  // Background of the offer section (Figma "multi grid bg desktop"), sits at 59,1443 in the frame.
+  const dishes = document.getElementById("dishes");
+  dishes.style.backgroundSize = `${1240 / 1232 * 100}% ${832 / 420 * 100}%`;
+  dishes.style.backgroundPosition = `${(59 - 104) / (1232 - 1240) * 100}% ${(1443 - 1580) / (420 - 832) * 100}%`;
+
+  const lp = document.getElementById("lp");
+  const set = bez => {
+    lp.classList.toggle("bez", bez);
+    document.getElementById("r24").setAttribute("aria-pressed", !bez);
+    document.getElementById("rbez").setAttribute("aria-pressed", bez);
+  };
+  document.getElementById("r24").addEventListener("click", () => set(false));
+  document.getElementById("rbez").addEventListener("click", () => set(true));
+</script>
+</body>
+</html>
