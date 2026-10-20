@@ -8,18 +8,21 @@
 <style>
   /* Layout: only the Figma frame, centered, at most its native 1440px width.
      Overlays are placed in the frame's own pixel coordinates, converted to % of 1440 × 5488. */
-  :root { --bg: #ffffff; --selected: #ff7900; --idle: #cccccc; }
+  :root { --bg: #ffffff; --selected: #f15e00; --idle: #cccccc; }
   body { background: var(--bg); margin: 0; }
-  .lp { position: relative; max-width: 1440px; margin: 0 auto; }
+  .lp { position: relative; max-width: 1440px; margin: 0 auto; container-type: inline-size; }
+  /* One Figma pixel at the current rendered width. */
+  .lp { --fpx: calc(100cqw / 1440); }
   .lp > img { display: block; width: 100%; height: auto; }
   .hit {
     position: absolute; padding: 0; margin: 0; border: 0; background: none;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
   .hit::after {
-    content: ""; position: absolute; inset: -1px; border-radius: 7px;
-    border: 3px solid transparent; pointer-events: none;
+    content: ""; position: absolute; inset: 0; border-radius: calc(6 * var(--fpx));
+    border: calc(2 * var(--fpx)) solid transparent; pointer-events: none;
   }
+  .hit:focus { outline: none; }
   .hit:focus-visible { outline: 2px solid #000; outline-offset: 3px; border-radius: 6px; }
   .lp.bez #r24::after { border-color: var(--idle); }
   .lp.bez #rbez::after { border-color: var(--selected); }
