@@ -11,6 +11,8 @@
   :root { --bg: #ffffff; --selected: #f15e00; --idle: #cccccc; --scrim: rgb(0 0 0 / .6); }
   body { background: var(--bg); margin: 0; }
   body.modal-open { overflow: hidden; }
+  /* Classes below set display (e.g. the modal scrim uses grid), which would otherwise override the hidden attribute. */
+  [hidden] { display: none !important; }
   .lp { position: relative; max-width: 1440px; margin: 0 auto; container-type: inline-size; }
   /* One Figma pixel at the current rendered width. */
   .lp { --fpx: calc(100cqw / 1440); }
