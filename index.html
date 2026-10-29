@@ -7,9 +7,10 @@
 <title>LP Hub TV Extra TV</title>
 <style>
   /* Layout: only the Figma frame, centered, at most its native 1440px width.
-     Overlays are placed in the frame's own pixel coordinates, converted to % of 1440 × 5488. */
-  :root { --bg: #ffffff; --selected: #f15e00; --idle: #cccccc; }
+     Overlays are placed in the frame's own pixel coordinates, converted to % of 1440 × 5400. */
+  :root { --bg: #ffffff; --selected: #f15e00; --idle: #cccccc; --scrim: rgb(0 0 0 / .6); }
   body { background: var(--bg); margin: 0; }
+  body.modal-open { overflow: hidden; }
   .lp { position: relative; max-width: 1440px; margin: 0 auto; container-type: inline-size; }
   /* One Figma pixel at the current rendered width. */
   .lp { --fpx: calc(100cqw / 1440); }
@@ -23,6 +24,7 @@
     border: calc(2 * var(--fpx)) solid transparent; pointer-events: none;
   }
   .hit:focus { outline: none; }
+  .hit:disabled { cursor: default; }
   .hit:focus-visible { outline: 2px solid #000; outline-offset: 3px; border-radius: 6px; }
   .lp.bez #r24::after { border-color: var(--idle); }
   .lp.bez #rbez::after { border-color: var(--selected); }
@@ -30,33 +32,284 @@
     position: absolute; overflow: hidden;
     background: url("assets/bg-oferta.png") no-repeat;
   }
-  .dishes img { display: block; width: 100%; height: 100%; }
-  .lp:not(.bez) .dishes { display: none; }
+  /* Figma exports the cards flattened on white, so clip them to the card's own 8px radius. */
+  .dishes img {
+    position: absolute; top: 0; width: calc(400 / 1232 * 100%); height: 100%;
+    border-radius: calc(8 * var(--fpx));
+  }
+  #card-start { left: calc(208 / 1232 * 100%); }
+  #card-extra { left: calc(624 / 1232 * 100%); }
+  .lp:not(.bez) .dishes, .lp:not(.bez) .only-bez, .lp.bez .only-24 { display: none; }
+  /* Copy change painted over the mockup: the dish button reads "Zamów rozmowę" instead of "Zamów". */
+  /* Switch states painted over the mockup, cut from the green and gray switches on the same screen. */
+  .switch img, .lp > img.overlay { display: block; width: 100%; height: 100%; }
+  .lp > img.overlay { position: absolute; pointer-events: none; }
+  .lp > img.overlay[hidden] { display: none; }
+  .switch[aria-checked="false"] img.on, .switch[aria-checked="true"] img.off { visibility: hidden; }
+  #konfigurator.tv-off .only-kf-tv,
+  #internet-mobilny:not(.tv-off) .only-tv-off, #internet-mobilny.tv-off .only-tv-on { display: none; }
+  .relabel {
+    position: absolute; display: grid; place-items: center; pointer-events: none;
+    background: #ff7900; color: #000;
+    font: 700 calc(16 * var(--fpx)) / 1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  /* "Sprawdź, czy jesteś w zasięgu" on Internet mobilny: live fields over the mockup, filled state = Figma 9923:107004. */
+  .wwt-field {
+    position: absolute; box-sizing: border-box; background: #fff;
+    border: calc(2 * var(--fpx)) solid #ccc; border-radius: calc(4 * var(--fpx));
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  .wwt-field:focus-within { border-color: #000; }
+  .wwt-field.off { background: #ededed; }
+  .wwt-field label {
+    position: absolute; left: calc(16 * var(--fpx)); top: 50%; transform: translateY(-50%);
+    color: #5b5b5b; font-size: calc(16 * var(--fpx)); line-height: 1; pointer-events: none;
+    transition: top .12s, font-size .12s;
+  }
+  .wwt-field label b { color: #f16e00; font-weight: 400; }
+  .wwt-field.filled label, .wwt-field:focus-within label {
+    top: calc(14 * var(--fpx)); font-size: calc(12 * var(--fpx)); font-weight: 700; transform: none;
+  }
+  .wwt-field input {
+    position: absolute; left: calc(16 * var(--fpx)); right: calc(16 * var(--fpx)); bottom: calc(8 * var(--fpx));
+    height: calc(24 * var(--fpx)); padding: 0; border: 0; background: none; outline: none;
+    font: 700 calc(16 * var(--fpx)) / 1 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #232323;
+  }
+  .wwt-field.select input { right: calc(52 * var(--fpx)); }
+  .wwt-field input::-webkit-calendar-picker-indicator { display: none !important; }
+  .wwt-field input:disabled { cursor: default; }
+  .wwt-field .chev {
+    position: absolute; right: calc(8 * var(--fpx)); top: 50%; transform: translateY(-50%);
+    width: calc(32 * var(--fpx)); height: calc(32 * var(--fpx)); border-radius: calc(4 * var(--fpx));
+    display: grid; place-items: center; background: #f4f4f4; border: 0; padding: 0; cursor: pointer;
+  }
+  .wwt-field.off .chev { background: none; cursor: default; }
+  .wwt-field .chev svg { width: 45%; height: 45%; }
+  .wwt-check {
+    position: absolute; box-sizing: border-box; padding: 0; background: #fff; cursor: pointer;
+    border: calc(2 * var(--fpx)) solid #ccc; border-radius: calc(2 * var(--fpx));
+    display: grid; place-items: center;
+  }
+  .wwt-check[aria-checked="true"] { background: #000; border-color: #000; }
+  .wwt-check svg { width: 70%; height: 70%; visibility: hidden; }
+  .wwt-check[aria-checked="true"] svg { visibility: visible; }
+
+  /* Loading screen after "Pokaż oferty", shown for 3 s. */
+  .loader {
+    position: fixed; inset: 0; z-index: 30; background: #fff;
+    display: grid; place-content: center; justify-items: center; gap: 32px; padding: 16px; text-align: center;
+  }
+  .loader[hidden] { display: none; }
+  .loader span { width: 42px; height: 42px; background: #f16e00; animation: loader-spin 1.2s ease-in-out infinite; }
+  .loader p { margin: 0; color: #000; font: 700 20px / 1.4 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  @keyframes loader-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .loader span { animation: none; } }
+
+  /* Modals, all 816px wide: "Szczegóły" = Figma 9236:79233 (FTTH) / 9236:79612 (Standalone),
+     "Lista kanałów" = Figma 8637:100574. */
+  .scrim {
+    position: fixed; inset: 0; z-index: 20; background: var(--scrim);
+    overflow-y: auto; overscroll-behavior: contain;
+    /* Pinned to the top so switching tabs only grows or shrinks the modal downwards. */
+    display: grid; align-items: start; justify-items: center;
+    padding: max(48px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+             max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
+  .modal {
+    position: relative; width: min(816px, 100%); container-type: inline-size;
+    border-radius: 8px; overflow: hidden; box-shadow: 0 8px 32px rgb(0 0 0 / .35);
+  }
+  .modal { --mpx: calc(100cqw / 816); }
+  /* "Zamów rozmowę" modal = Figma 9364:183929, 608px wide. */
+  .modal.narrow { width: min(608px, 100%); --mpx: calc(100cqw / 608); }
+  /* "Lista kanałów" is 1728px tall, so it scrolls inside the modal; hits sit in .modal-inner to stay
+     relative to the full image rather than the 600px viewport. */
+  .modal.scroll {
+    max-height: min(600px, calc(100dvh - 72px)); overflow-y: auto; overscroll-behavior: contain;
+  }
+  .modal-inner { position: relative; }
+  .modal-inner > img { display: block; width: 100%; height: auto; }
+  .modal > img { display: block; width: 100%; height: auto; }
+  .modal .hit::after { display: none; }
+  .modal .hit:focus-visible { border-radius: calc(4 * var(--mpx)); }
+  @media (prefers-reduced-motion: no-preference) {
+    .scrim:not([hidden]) { animation: fade .16s ease-out; }
+    .scrim:not([hidden]) .modal { animation: rise .2s ease-out; }
+  }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes rise { from { transform: translateY(12px); opacity: 0; } }
 </style>
 </head>
 <body>
+<!-- Screens: each .lp is one Figma frame 1440px wide and data-h tall; the URL hash picks which one shows. -->
+<div class="lp" id="lp" data-h="5400">
+  <!-- "A może w pakiecie?" cards = Figma 9827:57557, composited into the mockup at 152,2099 (324px tall). -->
+  <img src="assets/lp@2x.jpg" width="1440" height="5400" alt="Makieta landing page'a Telewizji Extra TV: baner, wybór umowy, oferta, pakiety z usługami, serwisy streamingowe, FAQ i stopka">
+  <button class="hit" id="details" data-open="m-details" data-box="136,1069,126,46" aria-haspopup="dialog" aria-label="Szczegóły"></button>
+  <button class="hit" id="r24" data-box="416,1384,296,52" aria-pressed="true" aria-label="24 miesiące"></button>
+  <button class="hit" id="rbez" data-box="728,1384,296,52" aria-pressed="false" aria-label="Bezterminowo"></button>
+  <div class="dishes" id="dishes" data-box="104,1452,1232,420" aria-hidden="true">
+    <img id="card-start" src="assets/card-start@2x.png" width="400" height="420" alt="Oferta bezterminowa: Start TV, 47 kanałów">
+    <img id="card-extra" src="assets/card-extra@2x.png" width="400" height="420" alt="Oferta bezterminowa: Extra TV, 179 kanałów">
+  </div>
+  <!-- Dish "Zamów" button: 356×46 at 22,226 inside each dish; the label patch covers its middle. -->
+  <span class="relabel only-24" data-box="562,1686,316,30">Zamów rozmowę</span>
+  <span class="relabel only-bez" data-box="354,1686,316,30">Zamów rozmowę</span>
+  <span class="relabel only-bez" data-box="770,1686,316,30">Zamów rozmowę</span>
+  <button class="hit only-24" data-open="m-cmb" data-box="542,1678,356,46" aria-haspopup="dialog" aria-label="Zamów rozmowę"></button>
+  <button class="hit only-bez" data-open="m-cmb" data-box="334,1678,356,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: Start TV"></button>
+  <button class="hit only-bez" data-open="m-cmb" data-box="750,1678,356,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: Extra TV"></button>
+  <!-- "Lista kanałów" sits 280px below each dish's top-left + 22px in. -->
+  <button class="hit only-24" data-open="m-kanaly" data-box="542,1732,356,46" aria-haspopup="dialog" aria-label="Lista kanałów"></button>
+  <button class="hit only-bez" data-open="m-kanaly-start" data-box="334,1732,356,46" aria-haspopup="dialog" aria-label="Lista kanałów: Start TV"></button>
+  <button class="hit only-bez" data-open="m-kanaly-extra" data-box="750,1732,356,46" aria-haspopup="dialog" aria-label="Lista kanałów: Extra TV"></button>
+  <!-- Bundle card buttons: 320×46 at 26,256 inside each card. -->
+  <a class="hit" href="https://www.orange.pl/internet/swiatlowod-z-tv" target="_blank" rel="noopener" data-box="178,2327,320,46" aria-label="Sprawdź oferty: TV + Światłowód"></a>
+  <a class="hit" href="#internet-mobilny" data-box="562,2327,320,46" aria-label="Sprawdź oferty: TV + Internet mobilny"></a>
+  <button class="hit" data-open="m-cmb" data-box="947,2327,320,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: TV + Abonament komórkowy"></button>
+</div>
 
-<div class="lp" id="lp">
-  <img src="assets/lp@2x.jpg" width="1440" height="5488" alt="Makieta landing page'a Telewizji Extra TV: baner, wybór umowy, oferta, pakiety, serwisy streamingowe, FAQ i stopka">
-  <button class="hit" id="r24" data-box="416,1512,296,52" aria-pressed="true" aria-label="24 miesiące"></button>
-  <button class="hit" id="rbez" data-box="728,1512,296,52" aria-pressed="false" aria-label="Bezterminowo"></button>
-  <div class="dishes" id="dishes" data-box="104,1580,1232,420" aria-hidden="true">
-    <img src="assets/dish@2x.png" width="1232" height="420" alt="Oferta bezterminowa: Start TV, 47 kanałów, oraz Extra TV">
+<!-- "Internet mobilny 5G dla domu" = Figma 9827:81771. -->
+<div class="lp" id="internet-mobilny" data-h="3532" hidden>
+  <img src="assets/internet-mobilny@2x.jpg" width="1440" height="3532" alt="Makieta strony Internet mobilny 5G dla domu z telewizją: sprawdzanie zasięgu, przykładowe oferty, routery, FAQ i stopka">
+  <a class="hit" href="#" data-box="103,19,42,42" aria-label="Orange: wróć do Telewizji Extra TV"></a>
+  <!-- "Sprawdź, czy jesteś w zasięgu": fields unlock in order (Miejscowość → Ulica → numery). -->
+  <div class="wwt-field select" data-box="136,458,320,56"><label for="wwt-city">Miejscowość<b>*</b></label><input id="wwt-city" list="wwt-cities" autocomplete="off"><button type="button" class="chev" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="#000" stroke-width="1.6"/></svg></button></div>
+  <div class="wwt-field select off" data-box="472,458,320,56"><label for="wwt-street">Ulica<b>*</b></label><input id="wwt-street" list="wwt-streets" autocomplete="off" disabled><button type="button" class="chev" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="#000" stroke-width="1.6"/></svg></button></div>
+  <div class="wwt-field off" data-box="808,458,160,56"><label for="wwt-house">Nr domu<b>*</b></label><input id="wwt-house" autocomplete="off" disabled></div>
+  <div class="wwt-field off" data-box="984,458,160,56"><label for="wwt-flat">Nr lokalu</label><input id="wwt-flat" autocomplete="off" disabled></div>
+  <button type="button" class="wwt-check" id="wwt-nostreet" role="checkbox" aria-checked="false" data-box="136,520,24,24" aria-label="W mojej miejscowości nie ma ulicy"><svg viewBox="0 0 12 10"><path d="M1 5 4.5 8.5 11 1.5" fill="none" stroke="#fff" stroke-width="1.8"/></svg></button>
+  <button type="button" class="hit" id="wwt-submit" data-box="1160,463,144,46" aria-label="Pokaż oferty"></button>
+  <datalist id="wwt-cities"><option value="Warszawa"><option value="Kraków"><option value="Łódź"><option value="Wrocław"><option value="Poznań"><option value="Gdańsk"></datalist>
+  <datalist id="wwt-streets"><option value="Aleje Jerozolimskie"><option value="Marszałkowska"><option value="Puławska"><option value="Świętokrzyska"><option value="Nowy Świat"></datalist>
+  <!-- Netflix tile in its active state (Figma 9862:86102), shown while the 5G plan switch is on. -->
+  <img class="overlay" id="netflix-active" src="assets/netflix-active@2x.png" data-box="936,734,400,66" alt="Netflix, przez 6 mies. w prezencie: przełącznik dostępny" hidden>
+  <button class="hit switch" id="sw-5g" role="switch" aria-checked="false" data-box="854,751,52,32" aria-label="Abonament komórkowy 5G"><img class="on" src="assets/switch-on@2x.png" alt=""></button>
+  <button class="hit switch" id="sw-tv" role="switch" aria-checked="true" data-box="438,751,52,32" aria-label="Telewizja i Amazon Prime"><img class="off" src="assets/switch-off@2x.png" alt=""></button>
+  <!-- Without TV the offer CTAs read "Sprawdź dostępność" instead of "Zamów rozmowę". -->
+  <span class="relabel only-tv-off only-24" data-box="342,1306,340,38">Sprawdź dostępność</span>
+  <span class="relabel only-tv-off only-24" data-box="758,1306,340,38">Sprawdź dostępność</span>
+  <button class="hit only-tv-on only-24" data-open="m-cmb" data-box="334,1302,356,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: 500 GB"></button>
+  <button class="hit only-tv-on only-24" data-open="m-cmb" data-box="750,1302,356,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: GB bez limitu"></button>
+  <!-- Czas trwania umowy; internet-mobilny-bez@2x.jpg has Bezterminowo selected and the single dish (36px shorter). -->
+  <button class="hit" id="im-r24" data-box="417,882,294,56" aria-pressed="true" aria-label="24 miesiące"></button>
+  <button class="hit" id="im-rbez" data-box="729,882,294,56" aria-pressed="false" aria-label="Bezterminowo"></button>
+  <button class="hit only-bez" data-open="m-cmb" data-box="542,1266,356,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: 500 GB, Bezterminowo"></button>
+</div>
+
+<!-- "Skonfiguruj swoją ofertę" (Strona Konfigurator) = Figma 9641:81734, opened 3 s after "Pokaż oferty";
+     the yellow design note on the left edge is painted out. -->
+<div class="lp" id="konfigurator" data-h="2326" hidden>
+  <img src="assets/fwa@2x.jpg" width="1440" height="2326" alt="Makieta strony Skonfiguruj swoją ofertę: adres, przełącznik Telewizja i Amazon Prime, czas trwania umowy, dwie oferty Internetu mobilnego 5G z telewizją, FAQ i stopka">
+  <a class="hit" href="#" data-box="20,60,30,30" aria-label="Orange: wróć do Telewizji Extra TV"></a>
+  <a class="hit" href="#internet-mobilny" data-box="104,124,46,46" aria-label="Wróć do Internetu mobilnego"></a>
+  <a class="hit" href="#internet-mobilny" data-box="1203,195,133,49" aria-label="Zmień adres"></a>
+  <!-- TV switch: off swaps in fwa-notv@2x.jpg = Figma 9642:150776 (internet-only dishes, 2114px tall). -->
+  <button class="hit" id="kf-tv" role="switch" aria-checked="true" data-box="852,348,56,34" aria-label="Telewizja i Amazon Prime"></button>
+  <!-- Bezterminowo: fwa-tv-bez@2x.jpg = Figma 9928:113951 (with TV, 2256px tall), fwa-notv-bez@2x.jpg = Figma 9642:152088
+       (without TV, 2150px tall). "Bezterminowa" is repainted as "Bezterminowo" in all four Konfigurator mockups. -->
+  <button class="hit" id="kf-r24" data-box="525,510,191,56" aria-pressed="true" aria-label="24 miesiące"></button>
+  <button class="hit" id="kf-rbez" data-box="724,510,191,56" aria-pressed="false" aria-label="Bezterminowo"></button>
+  <button class="hit only-kf-tv only-24" data-open="m-cmb" data-box="398,922,296,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: 500 GB"></button>
+  <button class="hit only-kf-tv only-24" data-open="m-cmb" data-box="746,922,296,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: Bez limitu GB"></button>
+  <button class="hit only-kf-tv only-bez" data-open="m-cmb" data-box="572,886,296,46" aria-haspopup="dialog" aria-label="Zamów rozmowę: 500 GB, Bezterminowo"></button>
+</div>
+
+<div class="loader" id="loader" role="status" aria-live="polite" hidden>
+  <span aria-hidden="true"></span>
+  <p>Już za chwilę zobaczysz prędkości i technologie<br>dostępne w Twojej okolicy!</p>
+</div>
+
+<div class="scrim" id="m-cmb" hidden>
+  <div class="modal narrow" role="dialog" aria-modal="true" aria-label="Chcesz dopytać o szczegóły lub zamówić ofertę?" data-w="608" data-h="412">
+    <img src="assets/modal-cmb@2x.png" width="608" height="412" alt="Formularz zamówienia rozmowy: termin rozmowy, telefon komórkowy, zgoda na kontakt, przycisk Zamów rozmowę">
+    <button class="hit" data-close data-mbox="568,8,32,32" aria-label="Zamknij"></button>
+    <button class="hit" data-close data-mbox="420,350,168,46" aria-label="Zamów rozmowę"></button>
+  </div>
+</div>
+
+<div class="scrim" id="m-kanaly" hidden>
+  <!-- Copy update: Figma 9774:130046 (Lista kanałów) / 9774:131215 (Na czym oglądać?). Figma has the
+       "Z Extra TV na 24 miesiące…" line only on the first tab; it is copied into the second so the tabs stay put. -->
+  <div class="modal scroll" role="dialog" aria-modal="true" aria-label="Lista kanałów" data-tabs="lista,jak" data-h-lista="1244" data-h-jak="596">
+    <div class="modal-inner">
+      <img data-v="lista" src="assets/modal-kanaly@2x.png" width="816" height="1244" alt="Telewizja 179 kanałów: lista kanałów, Amazon Prime i serwisy">
+      <img data-v="jak" src="assets/modal-jak@2x.png" width="816" height="596" alt="Na czym oglądać: bez dekodera w aplikacji Orange TV na telewizorze oraz mobilnie w Orange TV Go lub na tvgo.orange.pl">
+      <button class="hit" data-close data-mbox="772,4,40,40" aria-label="Zamknij"></button>
+      <button class="hit" data-tab="lista" data-mbox="20,138,388,40" aria-label="Lista kanałów"></button>
+      <button class="hit" data-tab="jak" data-mbox="408,138,388,40" aria-label="Na czym oglądać?"></button>
+      <button class="hit" data-v="lista" data-close data-mbox="720,1182,76,46" aria-label="Wróć"></button>
+      <button class="hit" data-v="jak" data-close data-mbox="720,534,76,46" aria-label="Wróć"></button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="m-kanaly-start" hidden>
+  <!-- "Lista kanałów" for Start TV (Bezterminowo, first dish): Figma 9774:134367 / 9774:134969. -->
+  <div class="modal scroll" role="dialog" aria-modal="true" aria-label="Lista kanałów: Telewizja 47 kanałów" data-tabs="lista,jak" data-h-lista="750" data-h-jak="560">
+    <div class="modal-inner">
+      <img data-v="lista" src="assets/modal-start-lista@2x.png" width="816" height="750" alt="Telewizja 47 kanałów: lista kanałów">
+      <img data-v="jak" src="assets/modal-start-jak@2x.png" width="816" height="560" alt="Na czym oglądać: bez dekodera w aplikacji Orange TV na telewizorze oraz mobilnie w Orange TV Go lub na tvgo.orange.pl">
+      <button class="hit" data-close data-mbox="772,4,40,40" aria-label="Zamknij"></button>
+      <button class="hit" data-tab="lista" data-mbox="20,102,388,40" aria-label="Lista kanałów"></button>
+      <button class="hit" data-tab="jak" data-mbox="408,102,388,40" aria-label="Na czym oglądać?"></button>
+      <button class="hit" data-v="lista" data-close data-mbox="720,688,76,46" aria-label="Wróć"></button>
+      <button class="hit" data-v="jak" data-close data-mbox="720,498,76,46" aria-label="Wróć"></button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="m-kanaly-extra" hidden>
+  <!-- "Lista kanałów" for Extra TV (Bezterminowo, second dish): Figma 9774:123337 / 9774:125464. -->
+  <div class="modal scroll" role="dialog" aria-modal="true" aria-label="Lista kanałów: Extra TV" data-tabs="lista,jak" data-h-lista="764" data-h-jak="560">
+    <div class="modal-inner">
+      <img data-v="lista" src="assets/modal-extra-lista@2x.png" width="816" height="764" alt="Extra TV: lista kanałów">
+      <img data-v="jak" src="assets/modal-extra-jak@2x.png" width="816" height="560" alt="Na czym oglądać: bez dekodera w aplikacji Orange TV na telewizorze oraz mobilnie w Orange TV Go lub na tvgo.orange.pl">
+      <button class="hit" data-close data-mbox="772,4,40,40" aria-label="Zamknij"></button>
+      <button class="hit" data-tab="lista" data-mbox="20,102,388,40" aria-label="Lista kanałów"></button>
+      <button class="hit" data-tab="jak" data-mbox="408,102,388,40" aria-label="Na czym oglądać?"></button>
+      <button class="hit" data-v="lista" data-close data-mbox="720,702,76,46" aria-label="Wróć"></button>
+      <button class="hit" data-v="jak" data-close data-mbox="720,498,76,46" aria-label="Wróć"></button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="m-details" hidden>
+  <!-- Copy update: Figma 9774:132417 (ze światłowodem Orange) / 9774:133355 (na dowolnym dostępie do internetu).
+       Figma has "Oto nasza telewizja" only on the second tab; it is copied into the first so the tabs stay put. -->
+  <div class="modal scroll" role="dialog" aria-modal="true" aria-label="Szczegóły: Wybierz telewizję dla siebie" data-tabs="ftth,standalone" data-h-ftth="1503" data-h-standalone="1500">
+    <div class="modal-inner">
+      <img data-v="ftth" src="assets/modal-ftth@2x.png" width="816" height="1503" alt="Szczegóły, zakładka ze światłowodem Orange: łącznie 230 kanałów TV, Start TV i Extra TV, lista kanałów, Amazon Prime w prezencie">
+      <img data-v="standalone" src="assets/modal-standalone@2x.png" width="816" height="1500" alt="Szczegóły, zakładka na dowolnym dostępie do internetu: 47 albo 179 kanałów, Start TV i Extra TV, lista kanałów, Amazon Prime w prezencie">
+      <button class="hit" data-close data-mbox="772,4,40,40" aria-label="Zamknij"></button>
+      <button class="hit" data-v="ftth" data-tab="ftth" data-mbox="20,138,388,40" aria-label="ze światłowodem Orange"></button>
+      <button class="hit" data-v="ftth" data-tab="standalone" data-mbox="408,138,388,40" aria-label="na dowolnym dostępie do internetu"></button>
+      <button class="hit" data-v="standalone" data-tab="ftth" data-mbox="20,138,388,40" aria-label="ze światłowodem Orange"></button>
+      <button class="hit" data-v="standalone" data-tab="standalone" data-mbox="408,138,388,40" aria-label="na dowolnym dostępie do internetu"></button>
+      <button class="hit" data-v="ftth" data-close data-mbox="720,1441,76,46" aria-label="Wróć"></button>
+      <button class="hit" data-v="standalone" data-close data-mbox="720,1438,76,46" aria-label="Wróć"></button>
+    </div>
   </div>
 </div>
 
 <script>
-  const W = 1440, H = 5488;
+  const W = 1440;
   const pct = (v, of) => (v / of * 100) + "%";
-  document.querySelectorAll("[data-box]").forEach(el => {
-    const [x, y, w, h] = el.dataset.box.split(",").map(Number);
+  // A screen can swap in a taller or shorter mockup: screen.shifts = [[y, dy], ...] moves every box at y or below
+  // by dy, and screen.hNow is the swapped mockup's height.
+  const placeBoxes = screen => screen.querySelectorAll("[data-box]").forEach(el => {
+    let [x, y, w, h] = el.dataset.box.split(",").map(Number);
+    const H = screen.hNow || Number(screen.dataset.h);
+    for (const [gy, dy] of screen.shifts || []) if (Number(el.dataset.box.split(",")[1]) >= gy) y += dy;
     Object.assign(el.style, { left: pct(x, W), top: pct(y, H), width: pct(w, W), height: pct(h, H) });
   });
+  document.querySelectorAll(".lp").forEach(placeBoxes);
 
-  // Background of the offer section (Figma "multi grid bg desktop"), sits at 59,1443 in the frame.
+  // Background of the offer section (Figma "multi grid bg desktop"), sits at 59,1315 in the frame.
   const dishes = document.getElementById("dishes");
   dishes.style.backgroundSize = `${1240 / 1232 * 100}% ${832 / 420 * 100}%`;
-  dishes.style.backgroundPosition = `${(59 - 104) / (1232 - 1240) * 100}% ${(1443 - 1580) / (420 - 832) * 100}%`;
+  dishes.style.backgroundPosition = `${(59 - 104) / (1232 - 1240) * 100}% ${(1315 - 1452) / (420 - 832) * 100}%`;
 
   const lp = document.getElementById("lp");
   const set = bez => {
@@ -66,6 +319,164 @@
   };
   document.getElementById("r24").addEventListener("click", () => set(false));
   document.getElementById("rbez").addEventListener("click", () => set(true));
+
+  document.querySelectorAll(".switch").forEach(sw => sw.addEventListener("click", () => {
+    sw.setAttribute("aria-checked", sw.getAttribute("aria-checked") !== "true");
+  }));
+  // Internet mobilny state: the 5G plan switch (Netflix active, 5G line in the cards), the TV switch
+  // (CTA copy) and the contract length. Bezterminowo needs TV and shows a single dish (Figma 9922:105924).
+  const im = document.getElementById("internet-mobilny");
+  const sw5g = document.getElementById("sw-5g"), swTv = document.getElementById("sw-tv");
+  const imR24 = document.getElementById("im-r24"), imRbez = document.getElementById("im-rbez");
+  let imBez = false;
+  const renderIm = () => {
+    const on5g = sw5g.getAttribute("aria-checked") === "true";
+    const tv = swTv.getAttribute("aria-checked") === "true";
+    if (!tv) imBez = false;
+    document.getElementById("netflix-active").hidden = !on5g;
+    im.classList.toggle("tv-off", !tv);
+    im.classList.toggle("bez", imBez);
+    imR24.setAttribute("aria-pressed", !imBez);
+    imRbez.setAttribute("aria-pressed", imBez);
+    imRbez.disabled = !tv;
+    // Mockup per state: the 5G plan adds a line to the cards (+64 from y 1172), no TV removes the TV block (-100).
+    const [src, h, shifts] = imBez ? ["assets/internet-mobilny-bez@2x.jpg", 3496, []]
+      : tv && on5g ? ["assets/internet-mobilny-5g@2x.jpg", 3596, [[1172, 64]]]
+      : tv ? ["assets/internet-mobilny@2x.jpg", 3532, []]
+      : on5g ? ["assets/internet-mobilny-notv-5g@2x.jpg", 3496, [[1172, -36]]]
+      : ["assets/internet-mobilny-notv@2x.jpg", 3432, [[1172, -100]]];
+    const img = im.querySelector(":scope > img");
+    img.src = src;
+    img.height = h;
+    im.hNow = h;
+    im.shifts = shifts;
+    placeBoxes(im);
+  };
+  sw5g.addEventListener("click", renderIm);
+  swTv.addEventListener("click", renderIm);
+  imR24.addEventListener("click", () => { imBez = false; renderIm(); });
+  imRbez.addEventListener("click", () => { imBez = true; renderIm(); });
+  ["assets/internet-mobilny-5g@2x.jpg", "assets/internet-mobilny-bez@2x.jpg", "assets/internet-mobilny-notv@2x.jpg", "assets/internet-mobilny-notv-5g@2x.jpg"].forEach(src => { new Image().src = src; });
+  // Coverage form: each field unlocks once the one before it has a value.
+  const wwt = id => document.getElementById("wwt-" + id);
+  const wwtUpdate = () => {
+    const noStreet = wwt("nostreet").getAttribute("aria-checked") === "true";
+    const city = wwt("city").value.trim() !== "";
+    wwt("street").disabled = !city || noStreet;
+    if (noStreet) wwt("street").value = "";
+    const numbers = city && (noStreet || wwt("street").value.trim() !== "");
+    wwt("house").disabled = wwt("flat").disabled = !numbers;
+    im.querySelectorAll(".wwt-field").forEach(f => {
+      const input = f.querySelector("input");
+      f.classList.toggle("off", input.disabled);
+      f.classList.toggle("filled", input.value !== "");
+    });
+  };
+  im.querySelectorAll(".wwt-field input").forEach(i => i.addEventListener("input", wwtUpdate));
+  im.querySelectorAll(".wwt-field .chev").forEach(c => c.addEventListener("click", () => {
+    const input = c.parentElement.querySelector("input");
+    if (input.disabled) return;
+    input.focus();
+    try { input.showPicker(); } catch (e) {}
+  }));
+  // Konfigurator: the TV switch swaps between the TV + internet dishes and the internet-only ones;
+  // either can be on a 24-month contract or Bezterminowo.
+  const kf = document.getElementById("konfigurator"), kfTv = document.getElementById("kf-tv");
+  const kfR24 = document.getElementById("kf-r24"), kfRbez = document.getElementById("kf-rbez");
+  let kfBez = false;
+  const renderKf = () => {
+    const tv = kfTv.getAttribute("aria-checked") === "true";
+    kf.classList.toggle("tv-off", !tv);
+    kf.classList.toggle("bez", kfBez);
+    kfR24.setAttribute("aria-pressed", !kfBez);
+    kfRbez.setAttribute("aria-pressed", kfBez);
+    const [src, h] = tv ? (kfBez ? ["assets/fwa-tv-bez@2x.jpg", 2256] : ["assets/fwa@2x.jpg", 2326])
+      : kfBez ? ["assets/fwa-notv-bez@2x.jpg", 2150] : ["assets/fwa-notv@2x.jpg", 2114];
+    const img = kf.querySelector(":scope > img");
+    img.src = src;
+    img.height = kf.hNow = h;
+    placeBoxes(kf);
+  };
+  kfTv.addEventListener("click", () => {
+    kfTv.setAttribute("aria-checked", kfTv.getAttribute("aria-checked") !== "true");
+    renderKf();
+  });
+  kfR24.addEventListener("click", () => { kfBez = false; renderKf(); });
+  kfRbez.addEventListener("click", () => { kfBez = true; renderKf(); });
+  ["assets/fwa-notv-bez@2x.jpg", "assets/fwa-tv-bez@2x.jpg"].forEach(src => { new Image().src = src; });
+  new Image().src = "assets/fwa-notv@2x.jpg";
+  let loaderTimer;
+  wwt("submit").addEventListener("click", () => {
+    const loader = document.getElementById("loader");
+    loader.hidden = false;
+    clearTimeout(loaderTimer);
+    loaderTimer = setTimeout(() => { loader.hidden = true; location.hash = "konfigurator"; }, 3000);
+  });
+  wwt("nostreet").addEventListener("click", () => {
+    const b = wwt("nostreet");
+    b.setAttribute("aria-checked", b.getAttribute("aria-checked") !== "true");
+    wwtUpdate();
+  });
+
+
+  // Modal hit areas use the modal's own coordinates (816px wide unless data-w says otherwise);
+  // in a tabbed modal (data-tabs) only the current tab's [data-v] elements show, and its height is data-h-<tab>.
+  let current = null, opener = null;
+  const placeModalHits = modal => {
+    const mw = Number(modal.dataset.w || 816);
+    const tab = modal.dataset.view;
+    const mh = Number(tab ? modal.getAttribute("data-h-" + tab) : modal.dataset.h);
+    modal.querySelectorAll("[data-mbox]").forEach(el => {
+      const [x, y, w, h] = el.dataset.mbox.split(",").map(Number);
+      Object.assign(el.style, { left: pct(x, mw), top: pct(y, mh), width: pct(w, mw), height: pct(h, mh) });
+    });
+  };
+  const setTab = (modal, tab) => {
+    if (tab) {
+      modal.dataset.view = tab;
+      modal.querySelectorAll("[data-v]").forEach(el => { el.hidden = el.dataset.v !== tab; });
+      modal.scrollTop = 0;
+    }
+    placeModalHits(modal);
+  };
+  const open = (id, from) => {
+    const scrim = document.getElementById(id), modal = scrim.querySelector(".modal");
+    setTab(modal, modal.dataset.tabs?.split(",")[0]);
+    scrim.hidden = false;
+    document.body.classList.add("modal-open");
+    scrim.scrollTop = modal.scrollTop = 0;
+    current = scrim; opener = from;
+    modal.querySelector("[data-close]").focus({ preventScroll: true });
+  };
+  const close = () => {
+    if (!current) return;
+    current.hidden = true; current = null;
+    document.body.classList.remove("modal-open");
+    opener?.focus({ preventScroll: true });
+  };
+  document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => open(b.dataset.open, b)));
+  document.querySelectorAll(".scrim").forEach(scrim => {
+    const modal = scrim.querySelector(".modal");
+    modal.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", close));
+    modal.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => setTab(modal, b.dataset.tab)));
+    scrim.addEventListener("click", e => { if (e.target === scrim) close(); });
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+
+  // Screen routing: "#<screen id>" shows that screen, anything else the landing page.
+  // The landing page's scroll position is kept so coming back lands where you left.
+  const screens = [...document.querySelectorAll(".lp")];
+  let lpScroll = 0;
+  const route = () => {
+    const target = screens.find(s => s !== lp && "#" + s.id === location.hash) || lp;
+    if (target === lp && lp.hidden === false) return;
+    if (!lp.hidden) lpScroll = scrollY;
+    close();
+    screens.forEach(s => { s.hidden = s !== target; });
+    scrollTo(0, target === lp ? lpScroll : 0);
+  };
+  addEventListener("hashchange", route);
+  route();
 </script>
 </body>
 </html>
